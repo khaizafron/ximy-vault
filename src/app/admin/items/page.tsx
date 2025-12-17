@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic"
+
 import { createAdminClient } from "@/lib/supabase/admin"
 import { GlassCard, GlassButton } from "@/components/glass"
 import { getPublicImageUrl } from "@/lib/supabase/storage" // ✅ ADD
