@@ -1,5 +1,7 @@
 "use client"
 
+export const dynamic = "force-dynamic"
+
 import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 import { GlassCard, GlassButton } from "@/components/glass"
 import { AddToCartButton } from "@/components/AddToCartButton"
