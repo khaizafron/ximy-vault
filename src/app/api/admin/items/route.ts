@@ -1,43 +1,11 @@
 import { NextResponse } from "next/server"
-import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 
 export async function POST(request: Request) {
   try {
-    const supabase = await createClient()
     const admin = createAdminClient()
 
-    /* 1️⃣ AUTH: guna session cookie */
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser()
-
-    if (!user || authError) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
-
-    /* 2️⃣ ADMIN CHECK */
-    let { data: dbUser } = await admin
-      .from("users")
-      .select("id, role")
-      .eq("id", user.id)
-      .single()
-
-    if (!dbUser) {
-      await admin.from("users").insert({
-        id: user.id,
-        email: user.email,
-        role: "admin",
-      })
-      dbUser = { id: user.id, role: "admin" }
-    }
-
-    if (dbUser.role !== "admin") {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
-    }
-
-    /* 3️⃣ FORM DATA */
+    /* 1️⃣ FORM DATA */
     const form = await request.formData()
 
     const title = form.get("title")?.toString().trim()
@@ -50,7 +18,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Invalid fields" }, { status: 400 })
     }
 
-    /* 4️⃣ SLUG (UNIQUE SAFE) */
+    /* 2️⃣ SLUG UNIQUE */
     const baseSlug = title
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, "-")
@@ -60,17 +28,17 @@ export async function POST(request: Request) {
     let i = 1
 
     while (true) {
-      const { data: existing } = await admin
+      const { data } = await admin
         .from("items")
         .select("id")
         .eq("slug", slug)
-        .single()
+        .maybeSingle()
 
-      if (!existing) break
+      if (!data) break
       slug = `${baseSlug}-${i++}`
     }
 
-    /* 5️⃣ INSERT ITEM */
+    /* 3️⃣ INSERT ITEM */
     const { data: item, error: itemError } = await admin
       .from("items")
       .insert({
@@ -91,7 +59,7 @@ export async function POST(request: Request) {
       )
     }
 
-    /* 6️⃣ IMAGES */
+    /* 4️⃣ IMAGES */
     const imageRows = []
 
     for (let i = 0; form.has(`image${i}`); i++) {
@@ -102,11 +70,11 @@ export async function POST(request: Request) {
       const ext = file.name.split(".").pop()
       const path = `${item.id}-${Date.now()}-${i}.${ext}`
 
-      const { error: uploadErr } = await admin.storage
+      const { error } = await admin.storage
         .from("item-images")
         .upload(path, buffer, { contentType: file.type })
 
-      if (uploadErr) continue
+      if (error) continue
 
       const { data } = admin.storage
         .from("item-images")
@@ -124,7 +92,7 @@ export async function POST(request: Request) {
       await admin.from("item_images").insert(imageRows)
     }
 
-    /* 7️⃣ MEASUREMENTS */
+    /* 5️⃣ MEASUREMENTS */
     const keys = [
       "pit_to_pit",
       "body_length",
@@ -141,9 +109,10 @@ export async function POST(request: Request) {
     })
 
     if (Object.keys(measurements).length) {
-      await admin
-        .from("item_measurements")
-        .insert({ item_id: item.id, ...measurements })
+      await admin.from("item_measurements").insert({
+        item_id: item.id,
+        ...measurements,
+      })
     }
 
     return NextResponse.json({ success: true, item })
