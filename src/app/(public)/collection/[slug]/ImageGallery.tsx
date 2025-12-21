@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import Image from 'next/image'
+import FluidGlassImage from '@/components/FluidGlassImage'
 
 interface ItemImage {
   id: string
@@ -29,21 +30,26 @@ export function ImageGallery({ images, title, isSold }: ImageGalleryProps) {
 
   return (
     <div className="flex flex-col gap-4">
+      {/* Main image with FluidGlass effect */}
       <div className="relative aspect-[3/4] w-full overflow-hidden rounded-2xl">
-        <Image
-          src={selectedImage}
-          alt={title}
-          fill
-          className={`object-cover transition-opacity duration-300 ${isSold ? 'opacity-60' : ''}`}
-          priority
-        />
+        <FluidGlassImage>
+          <Image
+            src={selectedImage}
+            alt={title}
+            fill
+            className={`object-cover transition-opacity duration-300 ${isSold ? 'opacity-60' : ''}`}
+            priority
+          />
+        </FluidGlassImage>
+        
         {isSold && (
-          <div className="absolute left-4 top-4 rounded-full bg-black/80 px-4 py-2 text-sm font-medium text-white backdrop-blur-sm">
+          <div className="absolute left-4 top-4 rounded-full bg-black/80 px-4 py-2 text-sm font-medium text-white backdrop-blur-sm z-20">
             Sold
           </div>
         )}
       </div>
       
+      {/* Thumbnails */}
       {images.length > 1 && (
         <div className="flex gap-2 overflow-x-auto pb-2">
           {images.map((img) => (
