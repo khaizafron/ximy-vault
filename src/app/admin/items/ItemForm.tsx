@@ -102,7 +102,12 @@ export function ItemForm({ item, measurements }: ItemFormProps) {
         Object.entries(formData).forEach(([k, v]) => fd.append(k, v as string))
         images.forEach((im, idx) => im.file && fd.append(`image${idx}`, im.file))
 
-        const res = await fetch("/api/admin/items", { method: "POST", body: fd })
+        const res = await fetch("/api/admin/items", {
+        method: "POST",
+        body: fd,
+        credentials: "include", // ✅ INI WAJIB
+        })
+
         const json = await res.json()
         if (!json.success) throw new Error(json.error || "Create failed")
       }
