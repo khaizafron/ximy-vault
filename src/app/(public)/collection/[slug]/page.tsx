@@ -176,7 +176,11 @@ export default function ItemDetailPage() {
 
   const primaryImage = item.images?.find((img) => img.is_primary) || item.images?.[0]
   const isSold = item.status === "sold" || item.status === "offline_sold"
-  const measurements = item.measurements?.[0]
+const measurements =
+  Array.isArray(item.measurements)
+    ? item.measurements[0]
+    : item.measurements ?? null
+
 
   const measurementLabels = [
     { key: "pit_to_pit" as const, label: "Pit to Pit" },
