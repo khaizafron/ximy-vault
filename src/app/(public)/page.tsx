@@ -1,3 +1,6 @@
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
 import { createAdminClient } from "@/lib/supabase/admin"
 import { GlassCard, GlassButton } from "@/components/glass"
 import Link from "next/link"

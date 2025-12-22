@@ -368,7 +368,7 @@ export function ItemForm({ item, measurements }: ItemFormProps) {
           </label>
           <ImageUpload images={images} onImagesChange={setImages} maxImages={10} />
           <p className="mt-2 text-xs text-black/50">
-            🗜️ Ultra-aggressive compression for mobile: 40-60% quality, max 1400px, 800KB per image, 3.5MB total. Desktop users: use max 6-7 high-quality images. Mobile users: use smaller images or fewer quantity.
+            Image usage is optimized to deliver the best experience on every device.
           </p>
         </div>
       )}

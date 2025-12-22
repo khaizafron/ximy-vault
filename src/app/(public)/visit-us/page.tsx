@@ -7,8 +7,8 @@ export default function VisitUsPage() {
     name: "The J @ Seri Alam",
     address: "The J @ Seri Alam, Johor Bahru",
     area: "Seri Alam, Pasir Gudang, Johor",
-    schedule: "Every Saturday & Sunday",
-    hours: "10:00 AM - 8:00 PM",
+    schedule: "Every Thursday & Sunday",
+    hours: "7:00 PM - 12:00 AM",
     mapEmbed: "https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3988.4581766370734!2d103.86773147066637!3d1.4961178577762115!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x31da6b58b4b372ad%3A0x2ce128d63eb5a17f!2sThe%20J%20%40%20Seri%20Alam!5e0!3m2!1sen!2smy!4v1765758087645!5m2!1sen!2smy"
   },
     
@@ -107,7 +107,7 @@ export default function VisitUsPage() {
               <ul className="space-y-3">
                 <li className="flex items-start gap-3">
                   <CheckCircle className="mt-0.5 h-5 w-5 flex-shrink-0 text-green-600" />
-                  <span>Follow us on <strong className="text-black/90">Instagram @ximyvault</strong> for location updates</span>
+                  <span>Follow us on <strong className="text-black/90">Tiktok @ximyvault</strong> for location updates</span>
                 </li>
                 <li className="flex items-start gap-3">
                   <CheckCircle className="mt-0.5 h-5 w-5 flex-shrink-0 text-green-600" />
