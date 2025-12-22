@@ -97,26 +97,50 @@ export function ItemForm({ item, measurements }: ItemFormProps) {
 
         await supabase.from("item_measurements").upsert(measurementData, { onConflict: "item_id" })
       } else {
-        // CREATE new item with images via FormData
+        // ✅ CREATE new item - GET TOKEN FIRST
+        const supabase = createClient()
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+
+        if (!session?.access_token || sessionError) {
+          alert("Authentication failed. Please login again.")
+          router.push("/admin/login")
+          return
+        }
+
+        // Build FormData
         const fd = new FormData()
         Object.entries(formData).forEach(([k, v]) => fd.append(k, v as string))
         images.forEach((im, idx) => im.file && fd.append(`image${idx}`, im.file))
 
+        // ✅ SEND REQUEST WITH TOKEN (3 methods untuk ensure compatibility)
         const res = await fetch("/api/admin/items", {
-        method: "POST",
-        body: fd,
-        credentials: "include", // ✅ INI WAJIB
+          method: "POST",
+          headers: {
+            // Method 1: Authorization header (traditional)
+            "Authorization": `Bearer ${session.access_token}`,
+          },
+          body: fd,
+          credentials: "include", // Method 2: Send cookies (Vercel needs this)
         })
 
+        if (!res.ok) {
+          const errorData = await res.json().catch(() => ({ error: "Unknown error" }))
+          throw new Error(errorData.error || `HTTP ${res.status}`)
+        }
+
         const json = await res.json()
-        if (!json.success) throw new Error(json.error || "Create failed")
+        if (!json.success) {
+          throw new Error(json.error || "Create failed")
+        }
+
+        console.log("✅ Item created:", json.item)
       }
 
       alert(`Item "${formData.title}" ${item ? "updated" : "created"} successfully!`)
       router.push("/admin/items")
       router.refresh()
     } catch (err: any) {
-      console.error(err)
+      console.error("❌ Form submission error:", err)
       alert(`Error: ${err.message}`)
     } finally {
       setLoading(false)
