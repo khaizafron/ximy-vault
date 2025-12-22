@@ -59,7 +59,12 @@ export function ItemForm({ item, measurements }: ItemFormProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    
+    // Prevent double submission
+    if (loading) return
+    
     setLoading(true)
+    console.log("🚀 Form submit started")
 
     const slug = generateSlug(formData.title)
 
@@ -110,9 +115,26 @@ export function ItemForm({ item, measurements }: ItemFormProps) {
         // Build FormData
         const fd = new FormData()
         Object.entries(formData).forEach(([k, v]) => fd.append(k, v as string))
-        images.forEach((im, idx) => im.file && fd.append(`image${idx}`, im.file))
+        
+        // Compress images untuk mobile (prevent memory issues)
+        console.log(`📸 Processing ${images.length} images...`)
+        for (let idx = 0; idx < images.length; idx++) {
+          const img = images[idx]
+          if (!img.file) continue
+          
+          // Limit file size for mobile (5MB max per image)
+          if (img.file.size > 5 * 1024 * 1024) {
+            alert(`Image ${idx + 1} too large (max 5MB). Please compress it.`)
+            setLoading(false)
+            return
+          }
+          
+          fd.append(`image${idx}`, img.file)
+        }
+        console.log("✅ Images processed")
 
         // ✅ SEND REQUEST WITH TOKEN (3 methods untuk ensure compatibility)
+        console.log("📡 Sending request...")
         const res = await fetch("/api/admin/items", {
           method: "POST",
           headers: {
@@ -122,6 +144,8 @@ export function ItemForm({ item, measurements }: ItemFormProps) {
           body: fd,
           credentials: "include", // Method 2: Send cookies (Vercel needs this)
         })
+
+        console.log("📥 Response status:", res.status)
 
         if (!res.ok) {
           const errorData = await res.json().catch(() => ({ error: "Unknown error" }))
@@ -243,10 +267,26 @@ export function ItemForm({ item, measurements }: ItemFormProps) {
       </div>
 
       <div className="flex gap-4 pt-4">
-        <GlassButton type="submit" disabled={loading} className="flex-1">
+        <GlassButton 
+          type="submit" 
+          disabled={loading}
+          className="flex-1"
+          onClick={(e) => {
+            // Ensure button works on mobile
+            if (loading) {
+              e.preventDefault()
+              e.stopPropagation()
+            }
+          }}
+        >
           {loading ? "Saving..." : item ? "Update Item" : "Create Item"}
         </GlassButton>
-        <GlassButton type="button" variant="secondary" onClick={() => router.back()}>
+        <GlassButton 
+          type="button" 
+          variant="secondary" 
+          onClick={() => router.back()}
+          disabled={loading}
+        >
           Cancel
         </GlassButton>
       </div>
