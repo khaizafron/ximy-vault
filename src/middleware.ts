@@ -6,10 +6,31 @@ export async function middleware(request: NextRequest) {
 
   /**
    * ======================================
-   * 1. SKIP SEMUA BUKAN PAGE RENDER
+   * 1. SPECIAL HANDLING FOR ADMIN API ROUTES (NEW!)
    * ======================================
-   * Middleware hanya untuk protect PAGE.
-   * Jangan ganggu POST / upload / API.
+   * Forward cookies properly untuk Vercel
+   */
+  if (pathname.startsWith('/api/admin')) {
+    const response = NextResponse.next()
+    
+    // Ensure cookies are forwarded (CRITICAL for Vercel)
+    const cookieHeader = request.headers.get('cookie')
+    if (cookieHeader) {
+      response.headers.set('x-forwarded-cookie', cookieHeader)
+    }
+    
+    // CORS headers
+    response.headers.set('Access-Control-Allow-Credentials', 'true')
+    response.headers.set('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS')
+    response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, Cookie')
+    
+    return response
+  }
+
+  /**
+   * ======================================
+   * 2. SKIP NON-GET REQUESTS (Public API)
+   * ======================================
    */
   if (request.method !== 'GET') {
     return NextResponse.next()
@@ -17,7 +38,7 @@ export async function middleware(request: NextRequest) {
 
   /**
    * ======================================
-   * 2. SKIP SEMUA API ROUTES
+   * 3. SKIP OTHER API ROUTES
    * ======================================
    */
   if (pathname.startsWith('/api')) {
@@ -26,7 +47,7 @@ export async function middleware(request: NextRequest) {
 
   /**
    * ======================================
-   * 3. PROTECT ADMIN PAGE SAHAJA
+   * 4. PROTECT ADMIN PAGE SAHAJA
    * ======================================
    */
   if (pathname.startsWith('/admin')) {
@@ -69,7 +90,7 @@ export async function middleware(request: NextRequest) {
 
   /**
    * ======================================
-   * 4. PUBLIC ROUTES
+   * 5. PUBLIC ROUTES
    * ======================================
    */
   return NextResponse.next()
@@ -77,11 +98,12 @@ export async function middleware(request: NextRequest) {
 
 /**
  * ======================================
- * 5. MATCHER (PAGE SAHAJA)
+ * 6. MATCHER (PAGE + ADMIN API)
  * ======================================
  */
 export const config = {
   matcher: [
     '/admin/:path*',
+    '/api/admin/:path*', // ← TAMBAH NI!
   ],
 }

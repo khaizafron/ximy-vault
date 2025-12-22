@@ -1,61 +1,88 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
 import { createAdminClient } from "@/lib/supabase/admin"
-import { cookies } from "next/headers"
 
 export async function POST(request: Request) {
   try {
-    /* ================= 1️⃣ GET TOKEN (FLEXIBLE METHOD) ================= */
+    console.log("🔍 API Route called - Environment:", process.env.VERCEL ? "VERCEL" : "LOCAL")
+    
+    /* ================= 1️⃣ GET TOKEN - VERCEL OPTIMIZED ================= */
     let token: string | null = null
 
-    // Method 1: Authorization header (untuk API calls dengan explicit token)
+    // Method 1: Authorization header
     const authHeader = request.headers.get("authorization")
     if (authHeader) {
       token = authHeader.replace("Bearer ", "")
+      console.log("✅ Token from Authorization header")
     }
 
-    // Method 2: Cookies (untuk browser requests - VERCEL & LOCALHOST)
+    // Method 2: Cookie header (VERCEL CRITICAL!)
     if (!token) {
-      const cookieStore = await cookies()
+      const cookieHeader = request.headers.get("cookie")
+      console.log("🍪 Cookie header:", cookieHeader ? "EXISTS" : "MISSING")
       
-      // Supabase stores session in multiple cookie formats
-      const sessionCookies = [
-        'sb-access-token',
-        'sb-refresh-token', 
-        // Check all possible Supabase cookie names
-        ...Array.from(cookieStore.getAll())
-          .filter(c => c.name.includes('supabase') || c.name.includes('sb-'))
-          .map(c => c.name)
-      ]
-
-      for (const cookieName of sessionCookies) {
-        const cookie = cookieStore.get(cookieName)
-        if (cookie?.value) {
-          token = cookie.value
-          break
+      if (cookieHeader) {
+        // Parse all Supabase auth cookies
+        const cookies = cookieHeader.split(';').map(c => c.trim())
+        
+        for (const cookie of cookies) {
+          // Check for various Supabase cookie formats
+          if (
+            cookie.startsWith('sb-') && 
+            (cookie.includes('auth-token') || cookie.includes('access-token'))
+          ) {
+            token = cookie.split('=')[1]
+            console.log("✅ Token from cookie:", cookie.split('=')[0])
+            break
+          }
         }
       }
     }
 
-    // Method 3: Get session from Supabase client (BEST FOR VERCEL)
+    // Method 3: Try to create authenticated Supabase client from request
     if (!token) {
+      console.log("⚠️ No token in headers/cookies, trying Supabase session...")
+      
+      // Get all cookies for Supabase
+      const cookieHeader = request.headers.get("cookie") || ""
+      
       const supabase = createClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+        {
+          auth: {
+            storage: {
+              getItem: (key: string) => {
+                const cookies = cookieHeader.split(';').map(c => c.trim())
+                const cookie = cookies.find(c => c.startsWith(key + '='))
+                return cookie ? cookie.split('=')[1] : null
+              },
+              setItem: () => {},
+              removeItem: () => {},
+            },
+          },
+        }
       )
       
       const { data: { session } } = await supabase.auth.getSession()
       if (session?.access_token) {
         token = session.access_token
+        console.log("✅ Token from Supabase session")
       }
     }
 
     if (!token) {
-      console.error("❌ No token found in headers or cookies")
-      return NextResponse.json({ error: "Unauthorized - No token" }, { status: 401 })
+      console.error("❌ AUTHENTICATION FAILED - No token found")
+      console.error("Headers:", Object.fromEntries(request.headers.entries()))
+      return NextResponse.json({ 
+        error: "Unauthorized - No authentication token found",
+        hint: "Please login again" 
+      }, { status: 401 })
     }
 
     /* ================= 2️⃣ VERIFY USER ================= */
+    console.log("🔐 Verifying token...")
+    
     const authClient = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
@@ -67,11 +94,11 @@ export async function POST(request: Request) {
     } = await authClient.auth.getUser(token)
 
     if (!user || authError) {
-      console.error("❌ Auth verification failed:", authError?.message)
+      console.error("❌ Token verification failed:", authError?.message)
       return NextResponse.json({ 
-        error: "Unauthorized - Invalid token",
+        error: "Forbidden - Invalid or expired token",
         details: authError?.message 
-      }, { status: 401 })
+      }, { status: 403 })
     }
 
     console.log("✅ User authenticated:", user.email)
