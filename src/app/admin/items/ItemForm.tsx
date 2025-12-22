@@ -189,6 +189,7 @@ export function ItemForm({ item, measurements }: ItemFormProps) {
         }
         
         let totalSize = 0
+        const maxTotalSize = 3.5 * 1024 * 1024 // 3.5MB total limit (safer for mobile)
         
         for (let idx = 0; idx < images.length; idx++) {
           const img = images[idx]
@@ -196,56 +197,71 @@ export function ItemForm({ item, measurements }: ItemFormProps) {
           
           let fileToUpload = img.file
           
-          // AGGRESSIVE: Compress ALL images (even small ones)
-          console.log(`🗜️ Compressing image ${idx + 1}...`)
+          // ULTRA AGGRESSIVE for mobile: Compress ALL images
+          console.log(`🗜️ Compressing image ${idx + 1} (${(img.file.size / 1024).toFixed(0)}KB)...`)
           
           try {
-            // Quality based on original size
-            let quality = 0.6 // Default 60%
+            // Dynamic quality based on file size AND total images
+            let quality = 0.5 // Default 50% (ultra aggressive)
+            let maxDimension = 1400 // Smaller for mobile
             
-            if (img.file.size > 2 * 1024 * 1024) {
-              quality = 0.5 // Very large files: 50%
+            // Adjust based on file size
+            if (img.file.size > 3 * 1024 * 1024) {
+              quality = 0.4 // Huge files: 40%
+              maxDimension = 1200
+            } else if (img.file.size > 2 * 1024 * 1024) {
+              quality = 0.45 // Very large: 45%
+              maxDimension = 1400
             } else if (img.file.size > 1 * 1024 * 1024) {
-              quality = 0.6 // Large files: 60%
+              quality = 0.5 // Large: 50%
+            } else if (img.file.size > 500 * 1024) {
+              quality = 0.55 // Medium: 55%
             } else {
-              quality = 0.7 // Small files: 70%
+              quality = 0.6 // Small: 60%
             }
             
-            const compressed = await compressImage(img.file, quality, 1600) // Max 1600px
+            // Further reduce quality if many images
+            if (images.length >= 8) {
+              quality = quality * 0.85 // Reduce by 15% if 8+ images
+              maxDimension = 1200
+            }
+            
+            const compressed = await compressImage(img.file, quality, maxDimension)
             fileToUpload = compressed
             
             const originalKB = (img.file.size / 1024).toFixed(0)
             const compressedKB = (compressed.size / 1024).toFixed(0)
             const savings = ((1 - compressed.size / img.file.size) * 100).toFixed(0)
             
-            console.log(`✅ Image ${idx + 1}: ${originalKB}KB → ${compressedKB}KB (${savings}% smaller)`)
+            console.log(`✅ Image ${idx + 1}: ${originalKB}KB → ${compressedKB}KB (saved ${savings}%)`)
           } catch (err) {
             console.error("Compression failed:", err)
-            alert(`Failed to compress image ${idx + 1}. Please try a different image.`)
+            alert(`Failed to compress image ${idx + 1}. Try a smaller/different image.`)
             setLoading(false)
             return
           }
           
-          // Hard limit: 1.5MB per image after compression
-          if (fileToUpload.size > 1.5 * 1024 * 1024) {
-            alert(`Image ${idx + 1} still too large after compression (${(fileToUpload.size / 1024 / 1024).toFixed(1)}MB). Please use a smaller image.`)
+          // Hard limit per image: 800KB after compression (mobile friendly)
+          if (fileToUpload.size > 800 * 1024) {
+            alert(`Image ${idx + 1} is ${(fileToUpload.size / 1024).toFixed(0)}KB after compression. Max 800KB per image. Please use smaller images or reduce quantity.`)
             setLoading(false)
             return
           }
           
           totalSize += fileToUpload.size
+          
+          // Check total as we go (prevent memory issues on mobile)
+          if (totalSize > maxTotalSize) {
+            alert(`Total size reached ${(totalSize / 1024 / 1024).toFixed(1)}MB (max 3.5MB). Please remove some images or use smaller files.`)
+            setLoading(false)
+            return
+          }
+          
           fd.append(`image${idx}`, fileToUpload)
         }
         
-        // Total payload check (4MB max for safety)
         const totalMB = (totalSize / 1024 / 1024).toFixed(2)
         console.log(`📦 Total payload: ${totalMB}MB for ${images.length} images`)
-        
-        if (totalSize > 4 * 1024 * 1024) {
-          alert(`Total size too large (${totalMB}MB). This shouldn't happen with compression. Please report this bug.`)
-          setLoading(false)
-          return
-        }
         
         console.log(`✅ All ${images.length} images ready (${totalMB}MB total)`)
 
@@ -277,8 +293,14 @@ export function ItemForm({ item, measurements }: ItemFormProps) {
       }
 
       alert(`Item "${formData.title}" ${item ? "updated" : "created"} successfully!`)
+      
+      // Force revalidate collection page
       router.push("/admin/items")
-      router.refresh()
+      router.refresh() // Refresh current route
+      
+      // Also revalidate collection page for public
+      fetch("/api/revalidate?path=/collection", { method: "POST" }).catch(() => {})
+      
     } catch (err: any) {
       console.error("❌ Form submission error:", err)
       alert(`Error: ${err.message}`)
@@ -346,7 +368,7 @@ export function ItemForm({ item, measurements }: ItemFormProps) {
           </label>
           <ImageUpload images={images} onImagesChange={setImages} maxImages={10} />
           <p className="mt-2 text-xs text-black/50">
-            🗜️ Images auto-compressed: Large files (50-60% quality), Medium files (60% quality), Small files (70% quality). Max 1600px width. No 413 errors guaranteed! 💪
+            🗜️ Ultra-aggressive compression for mobile: 40-60% quality, max 1400px, 800KB per image, 3.5MB total. Desktop users: use max 6-7 high-quality images. Mobile users: use smaller images or fewer quantity.
           </p>
         </div>
       )}
