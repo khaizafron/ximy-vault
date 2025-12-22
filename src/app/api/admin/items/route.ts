@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { revalidatePath } from "next/cache"
 
 export async function POST(request: Request) {
   try {
@@ -221,6 +222,16 @@ export async function POST(request: Request) {
         .from("item_measurements")
         .insert({ item_id: item.id, ...measurements })
       console.log("✅ Measurements saved")
+    }
+
+    /* ================= 9️⃣ REVALIDATE CACHE (NEW!) ================= */
+    try {
+      revalidatePath("/collection", "page")
+      revalidatePath("/admin/items", "page")
+      revalidatePath(`/collection/${slug}`, "page")
+      console.log("✅ Cache revalidated for collection & admin pages")
+    } catch (revalErr) {
+      console.warn("⚠️ Cache revalidation failed (non-critical):", revalErr)
     }
 
     return NextResponse.json({ success: true, item })
