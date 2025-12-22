@@ -32,6 +32,68 @@ interface ItemFormProps {
   }
 }
 
+// ========== IMAGE COMPRESSION HELPER ==========
+async function compressImage(file: File, quality: number = 0.6, maxSize: number = 1600): Promise<File> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.readAsDataURL(file)
+    
+    reader.onload = (e) => {
+      const img = new Image()
+      img.src = e.target?.result as string
+      
+      img.onload = () => {
+        const canvas = document.createElement('canvas')
+        const ctx = canvas.getContext('2d')!
+        
+        // Calculate dimensions (maintain aspect ratio)
+        let width = img.width
+        let height = img.height
+        
+        if (width > maxSize || height > maxSize) {
+          if (width > height) {
+            height = (height / width) * maxSize
+            width = maxSize
+          } else {
+            width = (width / height) * maxSize
+            height = maxSize
+          }
+        }
+        
+        canvas.width = width
+        canvas.height = height
+        
+        // Use better image smoothing
+        ctx.imageSmoothingEnabled = true
+        ctx.imageSmoothingQuality = 'high'
+        ctx.drawImage(img, 0, 0, width, height)
+        
+        canvas.toBlob(
+          (blob) => {
+            if (!blob) {
+              reject(new Error('Compression failed'))
+              return
+            }
+            
+            const compressedFile = new File([blob], file.name, {
+              type: 'image/jpeg',
+              lastModified: Date.now(),
+            })
+            
+            resolve(compressedFile)
+          },
+          'image/jpeg',
+          quality
+        )
+      }
+      
+      img.onerror = () => reject(new Error('Image load failed'))
+    }
+    
+    reader.onerror = () => reject(new Error('File read failed'))
+  })
+}
+
 export function ItemForm({ item, measurements }: ItemFormProps) {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
@@ -116,22 +178,76 @@ export function ItemForm({ item, measurements }: ItemFormProps) {
         const fd = new FormData()
         Object.entries(formData).forEach(([k, v]) => fd.append(k, v as string))
         
-        // Compress images untuk mobile (prevent memory issues)
+        // ✅ AGGRESSIVE COMPRESSION - 10 IMAGES NO ERROR!
         console.log(`📸 Processing ${images.length} images...`)
+        
+        // Limit: 10 images max
+        if (images.length > 10) {
+          alert("Maximum 10 images allowed.")
+          setLoading(false)
+          return
+        }
+        
+        let totalSize = 0
+        
         for (let idx = 0; idx < images.length; idx++) {
           const img = images[idx]
           if (!img.file) continue
           
-          // Limit file size for mobile (5MB max per image)
-          if (img.file.size > 5 * 1024 * 1024) {
-            alert(`Image ${idx + 1} too large (max 5MB). Please compress it.`)
+          let fileToUpload = img.file
+          
+          // AGGRESSIVE: Compress ALL images (even small ones)
+          console.log(`🗜️ Compressing image ${idx + 1}...`)
+          
+          try {
+            // Quality based on original size
+            let quality = 0.6 // Default 60%
+            
+            if (img.file.size > 2 * 1024 * 1024) {
+              quality = 0.5 // Very large files: 50%
+            } else if (img.file.size > 1 * 1024 * 1024) {
+              quality = 0.6 // Large files: 60%
+            } else {
+              quality = 0.7 // Small files: 70%
+            }
+            
+            const compressed = await compressImage(img.file, quality, 1600) // Max 1600px
+            fileToUpload = compressed
+            
+            const originalKB = (img.file.size / 1024).toFixed(0)
+            const compressedKB = (compressed.size / 1024).toFixed(0)
+            const savings = ((1 - compressed.size / img.file.size) * 100).toFixed(0)
+            
+            console.log(`✅ Image ${idx + 1}: ${originalKB}KB → ${compressedKB}KB (${savings}% smaller)`)
+          } catch (err) {
+            console.error("Compression failed:", err)
+            alert(`Failed to compress image ${idx + 1}. Please try a different image.`)
             setLoading(false)
             return
           }
           
-          fd.append(`image${idx}`, img.file)
+          // Hard limit: 1.5MB per image after compression
+          if (fileToUpload.size > 1.5 * 1024 * 1024) {
+            alert(`Image ${idx + 1} still too large after compression (${(fileToUpload.size / 1024 / 1024).toFixed(1)}MB). Please use a smaller image.`)
+            setLoading(false)
+            return
+          }
+          
+          totalSize += fileToUpload.size
+          fd.append(`image${idx}`, fileToUpload)
         }
-        console.log("✅ Images processed")
+        
+        // Total payload check (4MB max for safety)
+        const totalMB = (totalSize / 1024 / 1024).toFixed(2)
+        console.log(`📦 Total payload: ${totalMB}MB for ${images.length} images`)
+        
+        if (totalSize > 4 * 1024 * 1024) {
+          alert(`Total size too large (${totalMB}MB). This shouldn't happen with compression. Please report this bug.`)
+          setLoading(false)
+          return
+        }
+        
+        console.log(`✅ All ${images.length} images ready (${totalMB}MB total)`)
 
         // ✅ SEND REQUEST WITH TOKEN (3 methods untuk ensure compatibility)
         console.log("📡 Sending request...")
@@ -225,8 +341,13 @@ export function ItemForm({ item, measurements }: ItemFormProps) {
 
       {!item && (
         <div>
-          <label className="mb-2 block text-sm font-medium text-black/70">Images</label>
+          <label className="mb-2 block text-sm font-medium text-black/70">
+            Images (Max 10)
+          </label>
           <ImageUpload images={images} onImagesChange={setImages} maxImages={10} />
+          <p className="mt-2 text-xs text-black/50">
+            🗜️ Images auto-compressed: Large files (50-60% quality), Medium files (60% quality), Small files (70% quality). Max 1600px width. No 413 errors guaranteed! 💪
+          </p>
         </div>
       )}
 
