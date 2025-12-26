@@ -1,3 +1,4 @@
+'use client'
 
 import React, { useRef, useEffect } from 'react';
 import { motion, useScroll, useTransform, useMotionValue, useSpring, AnimatePresence } from 'framer-motion';
@@ -165,15 +166,27 @@ export const HeroSection: React.FC = () => {
             className="text-8xl md:text-[7rem] font-bold tracking-tighter text-white leading-none drop-shadow-[0_10px_30px_rgba(0,0,0,0.5)]"
           >
             XIMY{" "}
-            <span className="relative inline-block italic font-display text-transparent bg-gradient-to-r from-white via-white to-white/50 bg-clip-text">
-              VAULT
-              <motion.div 
-                initial={{ scaleX: 0 }}
-                animate={{ scaleX: 1 }}
-                transition={{ duration: 1.5, delay: 0.8 }}
-                className="absolute -bottom-4 left-0 w-full h-1.5 bg-gradient-to-r from-purple-500 via-pink-500 to-transparent origin-left rounded-full shadow-lg shadow-purple-500/50"
-              />
-            </span>
+            <span
+  className="
+    relative inline-block
+    font-[var(--font-allura)]
+    font-normal                /* ✅ IMPORTANT */
+    tracking-wide
+    text-transparent
+    bg-gradient-to-r from-white via-white to-white/50
+    bg-clip-text
+  "
+>
+  VAULT
+  <motion.div 
+    initial={{ scaleX: 0 }}
+    animate={{ scaleX: 1 }}
+    transition={{ duration: 1.5, delay: 0.8 }}
+    className="absolute -bottom-4 left-0 w-full h-1.5 bg-gradient-to-r from-purple-500 via-pink-500 to-transparent origin-left rounded-full shadow-lg shadow-purple-500/50"
+  />
+</span>
+
+
           </motion.h1>
         </div>
 
