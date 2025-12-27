@@ -123,7 +123,12 @@ export const HeroSection: React.FC = () => {
         transition={{ duration: 10, repeat: Infinity, ease: "linear" }}
         className="absolute inset-1 border border-white/10 rounded-full"
       />
-      <Sparkles className="h-4 w-4 md:h-5 md:w-5 text-amber-300 relative z-10 drop-shadow-[0_0_8px_rgba(252,211,77,0.8)]" />
+      <img
+  src="/star.PNG"
+  alt="Star"
+  className="h-4 w-4 md:h-5 md:w-5 relative z-10 drop-shadow-[0_0_8px_rgba(252,211,77,0.8)]"
+/>
+
     </div>
 
     <div className="flex flex-col items-start">
